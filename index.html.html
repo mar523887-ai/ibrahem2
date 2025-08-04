@@ -554,75 +554,51 @@
 
                         // تسجيل الدخول
         
-
-
 document.getElementById('loginForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
 
-    console.log('Trying login with:', username, password);
+    try {
+        const { data: user, error } = await supabaseClient
+            .from('users')
+            .select('*')
+            .eq('username', username)
+            .eq('password', password)
+            .maybeSingle();
 
-    const { data: user, error } = await supabaseClient
-        .from('users')
-        .select('*')
-        .eq('username', username)
-        .eq('password', password)
-        .maybeSingle();
+        console.log('Supabase login response:', { user, error });
 
-    console.log('Supabase response:', { user, error });
+        if (error) {
+            console.error('Database error:', error);
+            document.getElementById('errorMessage').textContent = 'خطأ في الاتصال بقاعدة البيانات';
+            document.getElementById('errorMessage').classList.remove('hidden');
+            return;
+        }
 
-    if (error) {
-        alert('خطأ في الاتصال بقاعدة البيانات، تحقق من الإعدادات.');
-        console.error('Supabase error:', error);
-        return;
-    }
+        if (!user) {
+            document.getElementById('errorMessage').textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
+            document.getElementById('errorMessage').classList.remove('hidden');
+            return;
+        }
 
-    if (!user) {
-        document.getElementById('errorMessage').textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
+        currentUser = user;
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('dashboard').classList.remove('hidden');
+        document.getElementById('userInfo').textContent = `مرحباً، ${user.username} (${getRoleText(user.role)})`;
+
+        if (user.role !== 'owner') {
+            document.getElementById('usersTab').style.display = 'none';
+        }
+
+        updateDashboard();
+        showRecentActivities();
+    } catch (err) {
+        console.error('Unexpected error:', err);
+        document.getElementById('errorMessage').textContent = 'حدث خطأ غير متوقع';
         document.getElementById('errorMessage').classList.remove('hidden');
-        return;
     }
-
-    currentUser = user;
-    document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('dashboard').classList.remove('hidden');
-    document.getElementById('userInfo').textContent = `مرحباً، ${user.username} (${getRoleText(user.role)})`;
-
-    if (user.role !== 'owner') {
-        document.getElementById('usersTab').style.display = 'none';
-    }
-
-    updateDashboard();
-    showRecentActivities();
 });
-
-
-    if (error) {
-        alert('خطأ في الاتصال بقاعدة البيانات، تحقق من الإعدادات.');
-        console.error('Supabase error:', error);
-        return;
-    }
-
-    if (!user) {
-        document.getElementById('errorMessage').textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
-        document.getElementById('errorMessage').classList.remove('hidden');
-        return;
-    }
-
-    currentUser = user;
-    document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('dashboard').classList.remove('hidden');
-    document.getElementById('userInfo').textContent = `مرحباً، ${user.username} (${getRoleText(user.role)})`;
-
-    if (user.role !== 'owner') {
-        document.getElementById('usersTab').style.display = 'none';
-    }
-
-    updateDashboard();
-    showRecentActivities();
-});
-
 
 
         // تسجيل الخروج
