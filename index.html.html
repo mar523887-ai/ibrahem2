@@ -555,6 +555,7 @@
                         // تسجيل الدخول
         
 
+
 document.getElementById('loginForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     const username = document.getElementById('username').value.trim();
@@ -570,6 +571,32 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         .maybeSingle();
 
     console.log('Supabase response:', { user, error });
+
+    if (error) {
+        alert('خطأ في الاتصال بقاعدة البيانات، تحقق من الإعدادات.');
+        console.error('Supabase error:', error);
+        return;
+    }
+
+    if (!user) {
+        document.getElementById('errorMessage').textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
+        document.getElementById('errorMessage').classList.remove('hidden');
+        return;
+    }
+
+    currentUser = user;
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+    document.getElementById('userInfo').textContent = `مرحباً، ${user.username} (${getRoleText(user.role)})`;
+
+    if (user.role !== 'owner') {
+        document.getElementById('usersTab').style.display = 'none';
+    }
+
+    updateDashboard();
+    showRecentActivities();
+});
+
 
     if (error) {
         alert('خطأ في الاتصال بقاعدة البيانات، تحقق من الإعدادات.');
