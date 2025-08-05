@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام محاسبة إبراهيم المتكامل</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+.hidden { display: none; }
+table { width: 100%; border-collapse: collapse; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+th { background-color: #f2f2f2; font-weight: bold; }
+tr:nth-child(even) { background-color: #f9f9f9; }
+</style>
+</head>
+<body class="bg-gray-50">
+
+<!-- شاشة تسجيل الدخول -->
+<div id="loginScreen" class="min-h-screen flex items-center justify-center">
+  <div class="max-w-md w-full space-y-8 p-8 bg-white shadow rounded">
+    <h2 class="text-2xl font-bold text-center">تسجيل الدخول</h2>
+    <form id="loginForm" class="space-y-4">
+      <div>
+        <label>اسم المستخدم</label>
+        <input type="text" id="username" required class="w-full border rounded p-2">
+      </div>
+      <div>
+        <label>كلمة المرور</label>
+        <input type="password" id="password" required class="w-full border rounded p-2">
+      </div>
+      <div id="errorMessage" class="hidden text-red-600 text-sm text-center bg-red-50 p-2 rounded"></div>
+      <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded">دخول</button>
+    </form>
+  </div>
+</div>
+
+<!-- لوحة التحكم -->
+<div id="dashboard" class="hidden">
+  <header class="bg-white border-b shadow">
+    <div class="max-w-7xl mx-auto flex justify-between items-center p-4">
+      <h1 class="text-xl font-bold">نظام محاسبة إبراهيم المتكامل</h1>
+      <div class="flex items-center gap-2">
+        <span id="userInfo" class="text-gray-700"></span>
+        <button onclick="logout()" class="bg-red-500 text-white px-3 py-1 rounded">خروج</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- أزرار التنقل -->
+  <nav class="bg-gray-100 p-2 flex gap-2 flex-wrap">
+    <button onclick="showSection('dashboardSection')" id="btnDashboard" class="nav-btn bg-blue-500 text-white px-3 py-1 rounded">لوحة التحكم</button>
+    <button onclick="showSection('warehouseSection')" id="btnWarehouse" class="nav-btn px-3 py-1 rounded">المستودع</button>
+    <button onclick="showSection('incomingSection')" id="btnIncoming" class="nav-btn px-3 py-1 rounded">الواردات</button>
+    <button onclick="showSection('outgoingSection')" id="btnOutgoing" class="nav-btn px-3 py-1 rounded">الصادرات</button>
+    <button onclick="showSection('reportsSection')" id="btnReports" class="nav-btn px-3 py-1 rounded">التقارير</button>
+    <button onclick="showSection('usersSection')" id="btnUsers" class="nav-btn px-3 py-1 rounded">إدارة المستخدمين</button>
+    <button onclick="refreshAllData()" class="bg-green-500 text-white px-3 py-1 rounded ml-auto">تحديث يدوي</button>
+  </nav>
+
+  <!-- الأقسام -->
+  <main class="p-4 space-y-6">
+    <section id="dashboardSection" class="content-section">
+      <h2 class="text-lg font-bold">إحصائيات</h2>
+      <div id="stats" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+      <div id="alerts" class="mt-4 text-red-600 font-bold"></div>
+    </section>
+
+    <section id="warehouseSection" class="content-section hidden">
+      <h2 class="font-bold mb-2">المستودع</h2>
+      <form id="addWarehouseForm" class="grid grid-cols-1 md:grid-cols-3 gap-2"></form>
+      <div id="warehouseList" class="mt-4 overflow-x-auto"></div>
+    </section>
+
+    <section id="incomingSection" class="content-section hidden">
+      <h2 class="font-bold mb-2">الواردات</h2>
+      <form id="addIncomingForm" class="grid grid-cols-1 md:grid-cols-3 gap-2"></form>
+      <div id="incomingList" class="mt-4 overflow-x-auto"></div>
+    </section>
+
+    <section id="outgoingSection" class="content-section hidden">
+      <h2 class="font-bold mb-2">الصادرات</h2>
+      <form id="addOutgoingForm" class="grid grid-cols-1 md:grid-cols-3 gap-2"></form>
+      <div id="outgoingList" class="mt-4 overflow-x-auto"></div>
+    </section>
+
+    <section id="reportsSection" class="content-section hidden">
+      <h2 class="font-bold mb-2">التقارير</h2>
+      <div id="reports" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </section>
+
+    <section id="usersSection" class="content-section hidden">
+      <h2 class="font-bold mb-2">إدارة المستخدمين</h2>
+      <form id="addUserForm" class="grid grid-cols-1 md:grid-cols-3 gap-2"></form>
+      <div id="usersList" class="mt-4 overflow-x-auto"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+const apiUrl = "https://script.google.com/macros/s/AKfycbzXfhxObcsj0ElYTs4JoYqaO8iIuOEgVCgDLFrpa_sf66iHM2-6Bn41OPQQqlJ3MGs/exec";
+let currentUser = null;
+
+// صلاحيات الأدوار
+const permissions = {
+  "المالك": { dashboard:true, warehouse:true, incoming:true, outgoing:true, reports:true, users:true, edit:true },
+  "المدير": { dashboard:true, warehouse:true, incoming:true, outgoing:true, reports:true, users:false, edit:true },
+  "المحاسب": { dashboard:true, warehouse:false, incoming:false, outgoing:false, reports:true, users:false, edit:false },
+  "مدخل البيانات": { dashboard:true, warehouse:true, incoming:true, outgoing:true, reports:false, users:false, edit:false }
+};
+
+document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const user = document.getElementById('username').value;
+  const pass = document.getElementById('password').value;
+  const users = await fetch(apiUrl + "?section=المستخدمين").then(r=>r.json());
+  const found = users.find(u => u[1] === user && u[2] === pass);
+  if(found){
+    currentUser = { name: found[0], username: found[1], role: found[3] };
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+    document.getElementById('userInfo').textContent = `${currentUser.name} (${currentUser.role})`;
+    applyPermissions();
+    refreshAllData();
+  } else {
+    document.getElementById('errorMessage').classList.remove('hidden');
+    document.getElementById('errorMessage').textContent = "بيانات الدخول غير صحيحة";
+  }
+});
+
+function applyPermissions(){
+  const rolePerm = permissions[currentUser.role];
+  if(!rolePerm.warehouse) document.getElementById('btnWarehouse').style.display="none";
+  if(!rolePerm.incoming) document.getElementById('btnIncoming').style.display="none";
+  if(!rolePerm.outgoing) document.getElementById('btnOutgoing').style.display="none";
+  if(!rolePerm.reports) document.getElementById('btnReports').style.display="none";
+  if(!rolePerm.users) document.getElementById('btnUsers').style.display="none";
+}
+
+function logout(){
+  currentUser = null;
+  document.getElementById('dashboard').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
+
+function showSection(id){
+  const rolePerm = permissions[currentUser.role];
+  const sectionMap = {
+    'dashboardSection': rolePerm.dashboard,
+    'warehouseSection': rolePerm.warehouse,
+    'incomingSection': rolePerm.incoming,
+    'outgoingSection': rolePerm.outgoing,
+    'reportsSection': rolePerm.reports,
+    'usersSection': rolePerm.users
+  };
+  if(!sectionMap[id]) return alert("❌ ليس لديك صلاحية للوصول لهذا القسم");
+  document.querySelectorAll('.content-section').forEach(s=>s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+async function refreshAllData(){
+  if(permissions[currentUser.role].warehouse) loadWarehouse();
+  if(permissions[currentUser.role].incoming) loadIncoming();
+  if(permissions[currentUser.role].outgoing) loadOutgoing();
+  if(permissions[currentUser.role].reports) loadReports();
+}
+
+async function loadWarehouse(){
+  const data = await fetch(apiUrl + "?section=المخزون").then(r=>r.json());
+  let html = "<table><tr><th>النوع</th><th>المقاس</th><th>الماركة</th><th>الكمية</th></tr>";
+  let alerts = [];
+  data.slice(1).forEach(row=>{
+    html += `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td></tr>`;
+    if(row[3] < 10) alerts.push(`⚠️ المخزون منخفض: ${row[0]} ${row[2]}`);
+  });
+  html += "</table>";
+  document.getElementById('warehouseList').innerHTML = html;
+  document.getElementById('alerts').innerHTML = alerts.join("<br>");
+}
+
+async function loadIncoming(){
+  const data = await fetch(apiUrl + "?section=الواردات").then(r=>r.json());
+  let html = "<table><tr><th>النوع</th><th>المورد</th><th>الكمية</th><th>السعر</th></tr>";
+  data.slice(1).forEach(r=> html += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`);
+  html += "</table>";
+  document.getElementById('incomingList').innerHTML = html;
+}
+
+async function loadOutgoing(){
+  const data = await fetch(apiUrl + "?section=الصادرات").then(r=>r.json());
+  let html = "<table><tr><th>النوع</th><th>العميل</th><th>الكمية</th><th>السعر</th></tr>";
+  data.slice(1).forEach(r=> html += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`);
+  html += "</table>";
+  document.getElementById('outgoingList').innerHTML = html;
+}
+
+async function loadReports(){
+  const incoming = await fetch(apiUrl + "?section=الواردات").then(r=>r.json());
+  const outgoing = await fetch(apiUrl + "?section=الصادرات").then(r=>r.json());
+  const totalPurchases = incoming.slice(1).reduce((s,r)=>s + (+r[4] * +r[5]),0);
+  const totalSales = outgoing.slice(1).reduce((s,r)=>s + (+r[4] * +r[5]),0);
+  const profit = totalSales - totalPurchases;
+  document.getElementById('reports').innerHTML = `
+    <div class="p-4 bg-white shadow rounded">إجمالي المشتريات: ${totalPurchases}</div>
+    <div class="p-4 bg-white shadow rounded">إجمالي المبيعات: ${totalSales}</div>
+    <div class="p-4 bg-white shadow rounded">الأرباح: ${profit}</div>
+  `;
+}
+
+setInterval(refreshAllData, 60000);
+</script>
+</body>
+</html>
